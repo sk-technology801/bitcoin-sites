@@ -1,13 +1,13 @@
 
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 
 // Dynamically import Lucide icons
 const icons = {
   User: dynamic(() => import('lucide-react').then(mod => mod.User)),
   Mail: dynamic(() => import('lucide-react').then(mod => mod.Mail)),
-  Phone: dynamic(() => import('lucide-react').then(mod => mod.Phone)),
+  Book: dynamic(() => import('lucide-react').then(mod => mod.Book)),
   Globe: dynamic(() => import('lucide-react').then(mod => mod.Globe)),
   Bell: dynamic(() => import('lucide-react').then(mod => mod.Bell)),
   Clock: dynamic(() => import('lucide-react').then(mod => mod.Clock)),
@@ -22,12 +22,15 @@ const icons = {
 };
 
 export default function ProfilePage() {
+  const userId = "66c3a12f1234567890abcd12"; // Example ID from MongoDB User collection
   const [darkMode, setDarkMode] = useState(true);
   const [modalOpen, setModalOpen] = useState(null); // 'edit-info'
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [userInfo, setUserInfo] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 (123) 456-7890',
+    name: '',
+    email: '',
+    bio: '',
   });
   const [tempInfo, setTempInfo] = useState(userInfo);
   const [preferences, setPreferences] = useState({
@@ -48,10 +51,45 @@ export default function ProfilePage() {
     { id: 2, provider: 'MetaMask', status: 'Connected', connectedAt: '2025-07-15' },
   ];
 
-  const handleSaveInfo = useCallback(() => {
-    setUserInfo(tempInfo);
-    setModalOpen(null);
-    console.log('User info updated:', tempInfo);
+  useEffect(() => {
+    async function fetchProfile() {
+      try {
+        const res = await fetch(`/api/profile?userId=${userId}`);
+        const data = await res.json();
+        if (data && !data.error) {
+          setUserInfo({ name: data.name || '', email: data.email || '', bio: data.bio || '' });
+        } else {
+          setError('Failed to fetch profile');
+        }
+      } catch (error) {
+        console.error('Error fetching profile:', error);
+        setError('Failed to fetch profile');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchProfile();
+  }, []);
+
+  async function saveProfile(profileData) {
+    await fetch("/api/profile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...profileData, userId }),
+    });
+  }
+
+  const handleSaveInfo = useCallback(async () => {
+    try {
+      await saveProfile(tempInfo);
+      setUserInfo(tempInfo);
+      setModalOpen(null);
+      setError(null);
+      alert("Profile saved to MongoDB Compass ✅");
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      setError('Failed to save profile');
+    }
   }, [tempInfo]);
 
   const handlePreferenceChange = useCallback((key, value) => {
@@ -71,6 +109,22 @@ export default function ProfilePage() {
     console.log('Starting identity verification');
   }, []);
 
+  if (loading) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+        <p className={`text-base sm:text-lg ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading profile...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+        <p className={`text-base sm:text-lg ${darkMode ? 'text-red-400' : 'text-red-600'}`}>{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       {/* Header */}
@@ -81,11 +135,11 @@ export default function ProfilePage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center space-x-3 sm:space-x-4">
               <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-orange-500 to-yellow-500 flex items-center justify-center text-white font-bold text-lg sm:text-xl">
-                {userInfo.name[0]}
+                {typeof userInfo.name === 'string' && userInfo.name.length > 0 ? userInfo.name[0] : 'U'}
               </div>
               <div>
                 <h1 className={`text-xl sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
-                  {userInfo.name}
+                  {userInfo.name || 'User'}
                 </h1>
                 <span className={`text-xs sm:text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                   Premium Member
@@ -134,7 +188,7 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <div className={`text-xs sm:text-sm ${darkMode ? 'text-white' : 'text-gray-900'} mt-1`}>
-                  {userInfo.name}
+                  {userInfo.name || 'Not set'}
                 </div>
               </div>
               <div>
@@ -145,18 +199,18 @@ export default function ProfilePage() {
                   </span>
                 </div>
                 <div className={`text-xs sm:text-sm ${darkMode ? 'text-white' : 'text-gray-900'} mt-1`}>
-                  {userInfo.email}
+                  {userInfo.email || 'Not set'}
                 </div>
               </div>
               <div>
                 <div className="flex items-center space-x-2 sm:space-x-3">
-                  <icons.Phone className={`h-4 w-4 sm:h-5 sm:w-5 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`} />
+                  <icons.Book className={`h-4 w-4 sm:h-5 sm:w-5 ${darkMode ? 'text-orange-400' : 'text-orange-600'}`} />
                   <span className={`text-xs sm:text-sm ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Phone
+                    Bio
                   </span>
                 </div>
                 <div className={`text-xs sm:text-sm ${darkMode ? 'text-white' : 'text-gray-900'} mt-1`}>
-                  {userInfo.phone}
+                  {userInfo.bio || 'Not set'}
                 </div>
               </div>
               <button
@@ -376,6 +430,7 @@ export default function ProfilePage() {
                   className={`w-full p-2 sm:p-3 rounded-xl border text-xs sm:text-sm transition-colors duration-200 ${
                     darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
+                  placeholder="Name"
                 />
               </div>
               <div>
@@ -389,21 +444,24 @@ export default function ProfilePage() {
                   className={`w-full p-2 sm:p-3 rounded-xl border text-xs sm:text-sm transition-colors duration-200 ${
                     darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
+                  placeholder="Email"
                 />
               </div>
               <div>
                 <label className={`block text-xs sm:text-sm font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                  Phone
+                  Bio
                 </label>
-                <input
-                  type="tel"
-                  value={tempInfo.phone}
-                  onChange={(e) => setTempInfo({ ...tempInfo, phone: e.target.value })}
+                <textarea
+                  value={tempInfo.bio}
+                  onChange={(e) => setTempInfo({ ...tempInfo, bio: e.target.value })}
                   className={`w-full p-2 sm:p-3 rounded-xl border text-xs sm:text-sm transition-colors duration-200 ${
                     darkMode ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
+                  placeholder="Bio"
+                  rows="4"
                 />
               </div>
+              {error && <div className="text-red-400 text-xs mt-2">{error}</div>}
               <button
                 onClick={handleSaveInfo}
                 className={`w-full py-3 sm:py-4 rounded-xl font-bold text-white text-sm sm:text-base transition-all duration-200 transform hover:scale-105 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700`}
